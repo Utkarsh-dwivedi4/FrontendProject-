@@ -1,0 +1,1208 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>EduPulse — Modern ERP (KL-style)</title>
+
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- jsPDF -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+
+  <style>
+    /* ============================
+       THEME & GLOBAL (KL-like)
+       ============================ */
+    :root{
+      --bg: #f4f6f9;
+      --panel: #ffffff;
+      --muted: #6b7280;
+      --text: #0f1724;
+      --primary: #0b5ed7; /* more corporate blue */
+      --accent: linear-gradient(90deg,#0b5ed7,#06b6d4);
+      --shadow: 0 8px 28px rgba(13,20,30,0.06);
+      --glass: rgba(255,255,255,0.6);
+      --danger: linear-gradient(90deg,#ef4444,#f97316);
+      --sidebar-width: 260px;
+      --sidebar-collapsed: 72px;
+      --radius: 10px;
+    }
+
+    *{box-sizing:border-box}
+    html,body{height:100%;margin:0;font-family:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,Arial;background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
+    a{color:inherit}
+
+    /* helper */
+    .hidden{display:none !important}
+
+    /* centered auth shell (login/signup) */
+    #auth-shell{
+      min-height:100vh;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding:28px;
+    }
+    .auth-card{
+      width:980px;
+      max-width:100%;
+      display:grid;
+      grid-template-columns:420px 1fr;
+      gap:20px;
+      background:var(--panel);
+      box-shadow:var(--shadow);
+      border-radius:14px;
+      overflow:hidden;
+    }
+    .auth-left{
+      padding:28px;
+      background:linear-gradient(180deg,#ffffff,#f7fbff);
+    }
+    .auth-right{
+      padding:28px;
+    }
+    .brand{
+      display:flex;gap:12px;align-items:center;margin-bottom:18px;
+    }
+    .logo{
+      width:56px;height:56px;border-radius:12px;background:var(--accent);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:20px;box-shadow:0 6px 18px rgba(11,17,32,0.06)
+    }
+    h1,h2,h3{margin:0;padding:0}
+    .muted{color:var(--muted);font-size:14px}
+    .small{font-size:13px;color:var(--muted)}
+
+    label{display:block;font-size:13px;margin-bottom:6px;color:var(--muted)}
+    input,select,textarea{width:100%;padding:10px;border-radius:8px;border:1px solid rgba(15,23,36,0.06);background:transparent;font-size:14px}
+    .auth-actions{display:flex;gap:10px;margin-top:12px}
+    .btn{display:inline-flex;align-items:center;gap:8px;padding:10px 14px;border-radius:10px;border:0;cursor:pointer;background:var(--primary);color:#fff;font-weight:700;box-shadow:0 8px 22px rgba(11,93,215,0.12)}
+    .btn-outline{background:transparent;border:1px solid rgba(0,0,0,0.06);color:var(--text);font-weight:700;padding:10px 14px;border-radius:10px}
+    .link-btn{border:0;background:none;color:var(--primary);cursor:pointer;padding:4px;font-weight:700}
+
+    /* layout for app (post-login) */
+    #app-shell{height:100vh;display:flex;overflow:hidden}
+    .sidebar{
+      width:var(--sidebar-width);
+      background:#ffffff;
+      border-right:1px solid rgba(15,23,36,0.04);
+      padding:18px;
+      display:flex;
+      flex-direction:column;
+      gap:14px;
+      transition:width .18s ease, transform .18s ease;
+      box-shadow:var(--shadow);
+    }
+    .sidebar.collapsed{width:var(--sidebar-collapsed)}
+    .sidebar .brand-small{display:flex;gap:12px;align-items:center}
+    .sidebar .title {font-weight:700;font-size:16px}
+    .sidebar .muted{font-size:13px;color:var(--muted)}
+    .sidebar .menu{display:flex;flex-direction:column;gap:6px;margin-top:6px}
+    .menu-item{
+      display:flex;align-items:center;gap:12px;padding:10px;border-radius:8px;cursor:pointer;color:var(--text);font-weight:700;
+    }
+    .menu-item:hover{background:rgba(11,93,215,0.05)}
+    .menu-item.active{background:var(--primary);color:#fff;box-shadow:0 6px 18px rgba(11,93,215,0.12)}
+    .menu-item .icon{width:28px;height:28;display:inline-flex;align-items:center;justify-content:center}
+    .sidebar .foot{margin-top:auto;font-size:13px;color:var(--muted);text-align:center;padding-top:8px}
+
+    .main{flex:1;padding:22px;overflow:auto}
+    header.app-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;gap:12px}
+    .chip{padding:8px 12px;border-radius:999px;background:rgba(0,0,0,0.04);font-weight:700;color:var(--muted)}
+    .row{display:flex;gap:12px;align-items:center}
+    .card{background:var(--panel);padding:16px;border-radius:12px;box-shadow:var(--shadow);margin-bottom:12px}
+    .two-col{display:grid;grid-template-columns:1fr 360px;gap:14px}
+    @media (max-width:1000px){.two-col{grid-template-columns:1fr}}
+    table{width:100%;border-collapse:collapse}
+    th,td{padding:10px;border-bottom:1px solid rgba(15,23,36,0.04);text-align:left}
+    .small-muted{color:var(--muted);font-size:13px}
+
+    .form-row{display:flex;gap:10px}
+    .form-row > *{flex:1}
+    .danger{background:var(--danger);color:white}
+
+    /* subtle responsiveness */
+    @media (max-width:780px){
+      .auth-card{grid-template-columns:1fr; padding:10px}
+      .sidebar{display:none}
+    }
+  </style>
+</head>
+<body>
+
+  <!-- AUTH shell: centered login / signup (only visible before login) -->
+  <div id="auth-shell">
+    <div class="auth-card" role="region" aria-label="auth">
+      <div class="auth-left">
+        <div class="brand">
+          <div class="logo">EP</div>
+          <div>
+            <div style="font-weight:800;font-size:18px">EduPulse</div>
+            <div class="small">Student Performance ERP - Demo</div>
+          </div>
+        </div>
+
+        <div style="margin-top:18px;">
+          <h2 style="font-size:20px;margin-bottom:6px">Sign in to your account</h2>
+          <div class="small-muted">Enter credentials to access admin or student area. Use sample data or sign up if you're new.</div>
+
+          <div style="margin-top:12px">
+            <label for="login-role">Role</label>
+            <select id="login-role" aria-label="role">
+              <option value="student">Student</option>
+              <option value="admin">Admin</option>
+            </select>
+
+            <label for="login-id" style="margin-top:10px">Roll / Username</label>
+            <input id="login-id" placeholder="e.g. 101 or admin">
+
+            <label for="login-pass" style="margin-top:10px">Password</label>
+            <input id="login-pass" type="password" placeholder="password">
+
+            <div class="auth-actions" style="margin-top:12px">
+              <button class="btn" id="login-btn">Login</button>
+              <button class="btn btn-outline" id="open-signup">Sign Up</button>
+            </div>
+
+            <div id="login-msg" class="small" style="margin-top:10px;color:#b91c1c"></div>
+          </div>
+        </div>
+
+        <div style="margin-top:22px">
+          <h3 style="margin-bottom:6px">Demo</h3>
+          <div class="small-muted">Quickly try the app</div>
+          <div style="display:flex;gap:8px;margin-top:8px;">
+            <button class="btn" id="demo-load-sample">Load Sample Data</button>
+            <button class="btn btn-outline" id="demo-clear-local">Clear Data</button>
+          </div>
+        </div>
+
+        <div style="margin-top:20px" class="small-muted">Tip: Login as <b>admin / 123456</b> after loading sample data.</div>
+      </div>
+
+      <div class="auth-right">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <div>
+            <h2 style="margin-bottom:4px">New? Create an account</h2>
+            <div class="muted">Choose Admin or Student. Admins can manage class data.</div>
+          </div>
+          <div style="text-align:right">
+            <button class="link-btn" id="go-home">Back to Home</button>
+          </div>
+        </div>
+
+        <div style="margin-top:12px">
+          <div style="display:flex;gap:12px">
+            <div style="flex:1;">
+              <h3 style="margin-bottom:6px">Student Sign Up</h3>
+              <label>Roll No (unique)</label>
+              <input id="stu-su-roll" placeholder="e.g. 101">
+              <label style="margin-top:8px">Full Name</label>
+              <input id="stu-su-name" placeholder="Rohit Kumar">
+              <label style="margin-top:8px">Class / Section</label>
+              <input id="stu-su-class" placeholder="10-A">
+              <label style="margin-top:8px">Password</label>
+              <input id="stu-su-pass" type="password" placeholder="At least 6 chars">
+              <div style="margin-top:10px">
+                <button class="btn" id="stu-create-btn">Create Student</button>
+                <button class="btn btn-outline" id="auth-back">Back</button>
+              </div>
+              <div id="stu-su-msg" class="small" style="margin-top:8px;color:#b91c1c"></div>
+            </div>
+
+            <div style="flex:1;">
+              <h3 style="margin-bottom:6px">Admin Sign Up</h3>
+              <label>Username</label>
+              <input id="admin-su-username" placeholder="e.g. teacher1">
+              <label style="margin-top:8px">Full Name</label>
+              <input id="admin-su-name" placeholder="Sheila Patel">
+              <label style="margin-top:8px">Password</label>
+              <input id="admin-su-pass" type="password" placeholder="At least 6 chars">
+              <div style="margin-top:10px">
+                <button class="btn" id="admin-create-btn">Create Admin</button>
+                <button class="btn btn-outline" id="auth-back2">Back</button>
+              </div>
+              <div id="admin-su-msg" class="small" style="margin-top:8px;color:#b91c1c"></div>
+            </div>
+          </div>
+
+          <div style="margin-top:18px">
+            <h4 style="margin-bottom:6px">About EduPulse</h4>
+            <div class="small-muted">EduPulse is a frontend-only demo of a Student Performance ERP. It stores data in your browser. Good for hackathons & prototypes.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- APP shell: sidebar + main (hidden until login) -->
+  <div id="app-shell" class="hidden">
+    <div class="sidebar" id="sidebar" role="navigation" aria-label="Main menu">
+      <div class="brand-small">
+        <div class="logo" style="width:44px;height:44px;font-size:16px">EP</div>
+        <div>
+          <div class="title">EduPulse</div>
+          <div class="muted">Student ERP (Demo)</div>
+        </div>
+        <div style="margin-left:auto">
+          <button class="link-btn" id="sidebar-toggle" title="Toggle sidebar">☰</button>
+        </div>
+      </div>
+
+      <div id="menu-admin" class="menu hidden" aria-hidden="true">
+        <div class="menu-item active" data-page="page-admin"><div class="icon">🏠</div><div class="label">Dashboard</div></div>
+        <div class="menu-item" data-page="page-admin-marks"><div class="icon">✏️</div><div class="label">Update Marks</div></div>
+        <div class="menu-item" data-page="page-admin-students"><div class="icon">👥</div><div class="label">Students</div></div>
+        <div class="menu-item" data-page="page-admin-courses"><div class="icon">📚</div><div class="label">Courses</div></div>
+        <div class="menu-item" data-page="page-admin-timetable"><div class="icon">📅</div><div class="label">Timetable</div></div>
+        <div class="menu-item" data-page="page-admin-attendance"><div class="icon">✅</div><div class="label">Attendance</div></div>
+        <div class="menu-item" data-page="page-admin-profile"><div class="icon">👤</div><div class="label">Profile</div></div>
+        <div class="menu-item danger" id="admin-logout-btn"><div class="icon">⤴️</div><div class="label">Logout</div></div>
+      </div>
+
+      <div id="menu-student" class="menu hidden" aria-hidden="true">
+        <div class="menu-item active" data-page="page-student"><div class="icon">🏠</div><div class="label">Dashboard</div></div>
+        <div class="menu-item" data-page="page-stu-marks"><div class="icon">📊</div><div class="label">My Marks</div></div>
+        <div class="menu-item" data-page="page-stu-attendance"><div class="icon">📝</div><div class="label">Attendance</div></div>
+        <div class="menu-item" data-page="page-stu-timetable"><div class="icon">📆</div><div class="label">Timetable</div></div>
+        <div class="menu-item" data-page="page-stu-reval"><div class="icon">📨</div><div class="label">Re-evaluation</div></div>
+        <div class="menu-item" data-page="page-stu-profile"><div class="icon">👤</div><div class="label">Profile</div></div>
+        <div class="menu-item danger" id="stu-logout-btn"><div class="icon">⤴️</div><div class="label">Logout</div></div>
+      </div>
+
+      <div class="foot">EduPulse • local demo</div>
+    </div>
+
+    <main class="main" id="main">
+      <header class="app-header">
+        <div style="display:flex;align-items:center;gap:12px">
+          <div class="chip" id="current-role-chip">Guest</div>
+          <div class="small-muted" id="current-user">Not signed in</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px">
+          <select id="theme-picker" style="padding:8px;border-radius:8px;border:1px solid rgba(0,0,0,0.06)">
+            <option value="light">Light</option>
+            <option value="dark">Dark</option>
+            <option value="blue">Blue</option>
+          </select>
+        </div>
+      </header>
+
+      <!-- ADMIN pages -->
+      <section id="page-admin" class="card hidden">
+        <div class="two-col">
+          <div>
+            <h2>Admin Dashboard</h2>
+            <div class="small-muted" id="admin-welcome">Signed in as —</div>
+
+            <div class="card" style="margin-top:12px">
+              <h3>Quick Actions</h3>
+              <div style="display:flex;gap:10px;margin-top:10px">
+                <button class="btn" id="admin-action-add-stu">Add Student</button>
+                <button class="btn" id="admin-action-fill-sample">Fill Sample Marks</button>
+                <button class="btn btn-outline" id="admin-action-export">Export Class PDF</button>
+              </div>
+            </div>
+
+            <div class="card" style="margin-top:12px">
+              <h3>Today's Timetable</h3>
+              <div id="admin-today-timetable" class="small-muted">No timetable set.</div>
+            </div>
+
+            <div class="card" style="margin-top:12px">
+              <h3>Attendance Snapshot</h3>
+              <div id="admin-att-snapshot" class="small-muted">No records yet.</div>
+            </div>
+          </div>
+
+          <div>
+            <div class="card">
+              <h3>Class Analytics</h3>
+              <div style="height:220px"><canvas id="class-bar"></canvas></div>
+              <div class="small-muted" style="margin-top:8px">Subject-wise average marks across class.</div>
+            </div>
+
+            <div class="card" style="margin-top:12px">
+              <h3>Recently Added Students</h3>
+              <div id="recent-students" class="small-muted">—</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="page-admin-marks" class="card hidden">
+        <h2>Update Marks</h2>
+        <div style="max-width:720px">
+          <label>Select Student</label>
+          <select id="sel-student"></select>
+          <label>Subject</label>
+          <select id="subj">
+            <option>Mathematics</option>
+            <option>Physics</option>
+            <option>Chemistry</option>
+            <option>English</option>
+            <option>Computer</option>
+          </select>
+          <label>Marks (0 - 100)</label>
+          <input id="marks" type="number" min="0" max="100" value="80">
+          <div style="display:flex;gap:10px;margin-top:10px">
+            <button class="btn" id="save-marks">Save Marks</button>
+            <button class="btn btn-outline" id="admin-sample">Add Sample Marks</button>
+          </div>
+          <div id="marks-msg" class="small-muted" style="margin-top:10px"></div>
+        </div>
+      </section>
+
+      <section id="page-admin-students" class="card hidden">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <h2>Students</h2>
+          <div class="small-muted">Total: <span id="students-count">0</span></div>
+        </div>
+
+        <div class="card" style="margin-top:10px">
+          <h3>Add Student</h3>
+          <label>Roll No (unique)</label><input id="s-roll" placeholder="e.g. 101">
+          <label>Full Name</label><input id="s-name" placeholder="e.g. Rahul Sharma">
+          <label>Class / Section</label><input id="s-class" placeholder="10-A">
+          <div style="display:flex;gap:8px;margin-top:8px">
+            <button class="btn" id="add-student">Add Student</button>
+            <button class="btn btn-outline" id="admin-sample-fill">Fill All with Sample</button>
+          </div>
+          <div id="student-msg" class="small-muted" style="margin-top:8px"></div>
+        </div>
+
+        <div class="card" style="margin-top:12px">
+          <h3>Students Table</h3>
+          <div style="overflow:auto;max-height:320px">
+            <table id="students-table">
+              <thead><tr><th>Roll</th><th>Name</th><th>Class</th><th>Avg</th><th>Actions</th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section id="page-admin-courses" class="card hidden">
+        <h2>Courses You Teach</h2>
+        <div style="max-width:720px">
+          <label>Course Code</label><input id="course-code" placeholder="e.g. MATH101">
+          <label>Course Title</label><input id="course-title" placeholder="e.g. Mathematics">
+          <div style="display:flex;gap:8px;margin-top:8px">
+            <button class="btn" id="add-course">Add Course</button>
+            <button class="btn btn-outline" id="clear-courses">Clear Courses</button>
+          </div>
+          <div id="course-msg" class="small-muted" style="margin-top:8px"></div>
+
+          <div class="card" style="margin-top:12px">
+            <h3>Courses List</h3>
+            <ul id="course-list" class="small-muted"></ul>
+          </div>
+        </div>
+      </section>
+
+      <section id="page-admin-timetable" class="card hidden">
+        <h2>Timetable (Edit)</h2>
+        <div style="max-width:720px">
+          <label>Day</label>
+          <select id="tt-day"><option>Monday</option><option>Tuesday</option><option>Wednesday</option><option>Thursday</option><option>Friday</option><option>Saturday</option></select>
+          <label>Time Slot</label><input id="tt-slot" placeholder="10:00 - 11:00">
+          <label>Subject / Activity</label><input id="tt-sub" placeholder="Mathematics">
+          <div style="display:flex;gap:8px;margin-top:8px">
+            <button class="btn" id="add-tt">Add Slot</button>
+            <button class="btn btn-outline" id="clear-tt">Clear Timetable</button>
+          </div>
+          <div id="tt-msg" class="small-muted" style="margin-top:8px"></div>
+
+          <div class="card" style="margin-top:12px">
+            <h3>Full Timetable</h3>
+            <div id="tt-list" class="small-muted"></div>
+          </div>
+        </div>
+      </section>
+
+      <section id="page-admin-attendance" class="card hidden">
+        <h2>Attendance</h2>
+        <div style="max-width:720px">
+          <label>Select Date</label><input id="att-date" type="date">
+          <label>Select Class</label><input id="att-class" placeholder="10-A">
+          <div style="margin-top:8px" id="att-students-list"></div>
+          <div style="display:flex;gap:8px;margin-top:8px">
+            <button class="btn" id="save-attendance">Save Attendance</button>
+            <button class="btn btn-outline" id="view-attendance">View Attendance</button>
+          </div>
+          <div id="att-msg" class="small-muted" style="margin-top:8px"></div>
+        </div>
+      </section>
+
+      <section id="page-admin-profile" class="card hidden">
+        <h2>Profile</h2>
+        <div id="admin-profile-content" class="small-muted">—</div>
+      </section>
+
+      <!-- STUDENT pages -->
+      <section id="page-student" class="card hidden">
+        <div class="two-col">
+          <div>
+            <h2>Student Dashboard</h2>
+            <div id="stu-welcome" class="small-muted">—</div>
+
+            <div class="card" style="margin-top:12px">
+              <h3>Quick Links</h3>
+              <div style="display:flex;gap:8px;margin-top:10px">
+                <button class="btn" id="stu-download">Download Report</button>
+                <button class="btn btn-outline" id="stu-apply-reval">Apply Re-evaluation</button>
+              </div>
+            </div>
+
+            <div class="card" style="margin-top:12px">
+              <h3>Suggestions</h3>
+              <div id="stu-suggestions" class="small-muted">—</div>
+            </div>
+          </div>
+
+          <div>
+            <div class="card">
+              <h3>Subject Comparison</h3>
+              <div style="height:220px"><canvas id="stu-bar"></canvas></div>
+            </div>
+
+            <div class="card" style="margin-top:12px">
+              <h3>Attendance Overview</h3>
+              <div id="stu-att-overview" class="small-muted">—</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="page-stu-marks" class="card hidden">
+        <h2>Your Marks</h2>
+        <div class="card">
+          <h3>Marks Table</h3>
+          <table id="stu-table"><thead><tr><th>Subject</th><th>Marks</th></tr></thead><tbody></tbody></table>
+        </div>
+      </section>
+
+      <section id="page-stu-attendance" class="card hidden">
+        <h2>Your Attendance</h2>
+        <div id="stu-att-list" class="card small-muted">No attendance recorded.</div>
+      </section>
+
+      <section id="page-stu-timetable" class="card hidden">
+        <h2>Your Timetable</h2>
+        <div id="stu-timetable-list" class="small-muted">No timetable set.</div>
+      </section>
+
+      <section id="page-stu-reval" class="card hidden">
+        <h2>Apply for Re-evaluation</h2>
+        <div style="max-width:720px">
+          <label>Subject</label><select id="reval-sub"><option>Mathematics</option><option>Physics</option><option>Chemistry</option><option>English</option><option>Computer</option></select>
+          <label>Reason</label><textarea id="reval-reason" rows="3"></textarea>
+          <div style="display:flex;gap:8px;margin-top:8px">
+            <button class="btn" id="submit-reval">Submit Request</button>
+          </div>
+          <div id="reval-msg" class="small-muted" style="margin-top:8px"></div>
+
+          <div class="card" style="margin-top:12px">
+            <h3>Your Re-eval Requests</h3>
+            <div id="reval-list" class="small-muted"></div>
+          </div>
+        </div>
+      </section>
+
+      <section id="page-stu-profile" class="card hidden">
+        <h2>Your Profile</h2>
+        <div id="stu-profile-content" class="small-muted">—</div>
+      </section>
+
+      <footer style="margin-top:18px;color:var(--muted);font-size:13px">EduPulse • Frontend demo • Data in browser (localStorage)</footer>
+
+    </main>
+  </div>
+
+<script>
+/* ===============================
+   STORAGE KEYS & DB helpers
+   =============================== */
+const LS_KEY = "edupulse_v1";
+const LS_SESSION = "edupulse_session";
+
+function loadDB(){
+  try{ return JSON.parse(localStorage.getItem(LS_KEY) || "{}"); }
+  catch(e){ return {}; }
+}
+function saveDB(db){ localStorage.setItem(LS_KEY, JSON.stringify(db)); }
+
+let DB = loadDB();
+if(!DB.admins) DB.admins = {};
+if(!DB.students) DB.students = {};
+if(!DB.courses) DB.courses = {};
+if(!DB.timetable) DB.timetable = {};
+if(!DB.attendance) DB.attendance = {};
+saveDB(DB);
+
+function saveSession(session){ localStorage.setItem(LS_SESSION, JSON.stringify(session)); }
+function loadSession(){ return JSON.parse(localStorage.getItem(LS_SESSION) || "null"); }
+function clearSession(){ localStorage.removeItem(LS_SESSION); }
+
+/* ===============================
+   PAGE REFS & HELPERS
+   =============================== */
+const authShell = document.getElementById("auth-shell");
+const appShell = document.getElementById("app-shell");
+const sidebar = document.getElementById("sidebar");
+const menuAdmin = document.getElementById("menu-admin");
+const menuStudent = document.getElementById("menu-student");
+const sidebarToggle = document.getElementById("sidebar-toggle");
+
+const pages = {
+  home: document.getElementById("page-admin"), // not used in auth flow; mapping kept simple
+  admin: document.getElementById("page-admin"),
+  adminMarks: document.getElementById("page-admin-marks"),
+  adminStudents: document.getElementById("page-admin-students"),
+  adminCourses: document.getElementById("page-admin-courses"),
+  adminTimetable: document.getElementById("page-admin-timetable"),
+  adminAttendance: document.getElementById("page-admin-attendance"),
+  adminProfile: document.getElementById("page-admin-profile"),
+  student: document.getElementById("page-student"),
+  stuMarks: document.getElementById("page-stu-marks"),
+  stuAttendance: document.getElementById("page-stu-attendance"),
+  stuTimetable: document.getElementById("page-stu-timetable"),
+  stuReval: document.getElementById("page-stu-reval"),
+  stuProfile: document.getElementById("page-stu-profile")
+};
+
+function hideAllPagesInApp(){
+  Object.values(pages).forEach(p=>p.classList.add("hidden"));
+}
+function showPage(pageEl){
+  if(!pageEl) return;
+  hideAllPagesInApp();
+  pageEl.classList.remove("hidden");
+  window.scrollTo({top:0,behavior:"smooth"});
+  // render hooks
+  if(pageEl === pages.admin) { renderAdminDashboard(); updateClassChart(); populateStudentSelect(); renderAdminTables(); renderCourses(); renderTimetable(); renderAttendanceSnapshot(); }
+  if(pageEl === pages.adminMarks) { populateStudentSelect(); }
+  if(pageEl === pages.adminStudents) { renderAdminTables(); }
+  if(pageEl === pages.adminCourses) { renderCourses(); }
+  if(pageEl === pages.adminTimetable) { renderTimetable(); }
+  if(pageEl === pages.adminAttendance) { populateAttendanceStudentList(); }
+  if(pageEl === pages.adminProfile) { renderAdminProfile(); }
+
+  if(pageEl === pages.student) { renderStudentDashboard(); }
+  if(pageEl === pages.stuMarks) { renderStudentDashboard(); renderStudentMarksTable(); }
+  if(pageEl === pages.stuAttendance) { renderStudentAttendance(); }
+  if(pageEl === pages.stuTimetable) { renderStudentTimetable(); }
+  if(pageEl === pages.stuReval) { renderStudentRevalList(); }
+  if(pageEl === pages.stuProfile) { renderStudentProfile(); }
+}
+
+/* ===============================
+   Sidebar toggle & menu clicks
+   =============================== */
+sidebarToggle.onclick = ()=> sidebar.classList.toggle("collapsed");
+
+document.querySelectorAll('.menu-item').forEach(mi=>{
+  mi.addEventListener('click', ()=>{
+    const parentMenu = mi.parentElement;
+    parentMenu.querySelectorAll('.menu-item').forEach(i => i.classList.remove('active'));
+    mi.classList.add('active');
+    const page = mi.dataset.page;
+    const mapping = {
+      'page-admin': pages.admin,
+      'page-admin-marks': pages.adminMarks,
+      'page-admin-students': pages.adminStudents,
+      'page-admin-courses': pages.adminCourses,
+      'page-admin-timetable': pages.adminTimetable,
+      'page-admin-attendance': pages.adminAttendance,
+      'page-admin-profile': pages.adminProfile,
+      'page-student': pages.student,
+      'page-stu-marks': pages.stuMarks,
+      'page-stu-attendance': pages.stuAttendance,
+      'page-stu-timetable': pages.stuTimetable,
+      'page-stu-reval': pages.stuReval,
+      'page-stu-profile': pages.stuProfile
+    };
+    if(mapping[page]) showPage(mapping[page]);
+  });
+});
+
+/* ===============================
+   AUTH: login & signup bindings
+   =============================== */
+document.getElementById("open-signup").onclick = ()=> {
+  // show signup portion inside auth card: scroll right side into view
+  // since both forms are visible in the auth card, focus first input
+  document.getElementById("stu-su-roll").focus();
+};
+
+document.getElementById("auth-back").onclick = ()=> window.scrollTo({top:0,behavior:"smooth"});
+document.getElementById("auth-back2").onclick = ()=> window.scrollTo({top:0,behavior:"smooth"});
+document.getElementById("go-home").onclick = ()=> window.scrollTo({top:0,behavior:"smooth"});
+
+/* create admin */
+document.getElementById("admin-create-btn").onclick = ()=>{
+  const username = document.getElementById("admin-su-username").value.trim();
+  const name = document.getElementById("admin-su-name").value.trim();
+  const pass = document.getElementById("admin-su-pass").value;
+  const msg = document.getElementById("admin-su-msg");
+  if(!username || !name || pass.length < 6){ msg.textContent = "Username, name and password (>=6 chars) required."; return; }
+  if(DB.students[username]){ msg.textContent = "A student exists with that ID."; return; }
+  if(DB.admins[username]){ msg.textContent = "This admin username is already taken."; return; }
+  DB.admins[username] = { username, name, password: pass };
+  saveDB(DB);
+  saveSession({ role:"admin", id: username });
+  msg.textContent = "Admin created — Redirecting...";
+  setTimeout(()=> checkSessionRedirect(), 500);
+};
+
+/* create student */
+document.getElementById("stu-create-btn").onclick = ()=>{
+  const roll = document.getElementById("stu-su-roll").value.trim();
+  const name = document.getElementById("stu-su-name").value.trim();
+  const cls = document.getElementById("stu-su-class").value.trim();
+  const pass = document.getElementById("stu-su-pass").value;
+  const msg = document.getElementById("stu-su-msg");
+  if(!roll || !name || pass.length < 6){ msg.textContent = "Roll, name and password (>=6 chars) required."; return; }
+  if(DB.admins[roll]){ msg.textContent = "An admin exists with this ID. Use a different Roll No."; return; }
+  if(DB.students[roll]){ msg.textContent = "This roll number is already registered."; return; }
+  DB.students[roll] = { roll, name, cls, password: pass, marks: {}, attendance:{}, revalRequests:[] };
+  saveDB(DB);
+  saveSession({ role:"student", id: roll });
+  msg.textContent = "Student created — Redirecting...";
+  setTimeout(()=> checkSessionRedirect(), 500);
+};
+
+/* login */
+document.getElementById("login-btn").onclick = ()=>{
+  const role = document.getElementById("login-role").value;
+  const id = document.getElementById("login-id").value.trim();
+  const pass = document.getElementById("login-pass").value;
+  const msg = document.getElementById("login-msg");
+  if(!id || !pass){ msg.textContent="Enter ID and password."; return; }
+  if(role === "admin"){
+    if(!DB.admins[id]){ msg.textContent="No admin found with this username."; return; }
+    if(DB.admins[id].password !== pass){ msg.textContent="Incorrect password."; return; }
+    saveSession({ role:"admin", id });
+    msg.textContent = "Login success — Redirecting...";
+    setTimeout(()=> checkSessionRedirect(), 400);
+  } else {
+    if(!DB.students[id]){ msg.textContent="No student found with this Roll."; return; }
+    if(DB.students[id].password !== pass){ msg.textContent="Incorrect password."; return; }
+    saveSession({ role:"student", id });
+    msg.textContent = "Login success — Redirecting...";
+    setTimeout(()=> checkSessionRedirect(), 400);
+  }
+};
+
+/* demo controls */
+document.getElementById("demo-load-sample").onclick = loadSampleData;
+document.getElementById("demo-clear-local").onclick = clearAllLocal;
+
+/* ===============================
+   SESSION: show auth or app
+   =============================== */
+function checkSessionRedirect(){
+  const session = loadSession();
+  if(!session){
+    // show auth only
+    authShell.classList.remove("hidden");
+    appShell.classList.add("hidden");
+    menuAdmin.classList.add("hidden");
+    menuStudent.classList.add("hidden");
+    document.getElementById("current-role-chip").textContent = "Guest";
+    document.getElementById("current-user").textContent = "Not signed in";
+    window.scrollTo({top:0,behavior:"smooth"});
+    return;
+  }
+
+  // hide auth, show app
+  authShell.classList.add("hidden");
+  appShell.classList.remove("hidden");
+
+  if(session.role === "admin"){
+    menuAdmin.classList.remove("hidden");
+    menuStudent.classList.add("hidden");
+    document.getElementById("current-role-chip").textContent = "Admin";
+    document.getElementById("current-user").textContent = DB.admins[session.id] ? `${DB.admins[session.id].name} (${session.id})` : session.id;
+    menuAdmin.querySelectorAll('.menu-item').forEach(i=>i.classList.remove('active'));
+    menuAdmin.querySelector('.menu-item[data-page="page-admin"]').classList.add('active');
+    showPage(pages.admin);
+  } else {
+    menuStudent.classList.remove("hidden");
+    menuAdmin.classList.add("hidden");
+    document.getElementById("current-role-chip").textContent = "Student";
+    const s = DB.students[session.id];
+    document.getElementById("current-user").textContent = s ? `${s.name} • ${s.roll}` : session.id;
+    menuStudent.querySelectorAll('.menu-item').forEach(i=>i.classList.remove('active'));
+    menuStudent.querySelector('.menu-item[data-page="page-student"]').classList.add('active');
+    showPage(pages.student);
+  }
+}
+
+/* ===============================
+   Demo sample data helpers
+   =============================== */
+function loadSampleData(){
+  if(!DB.admins["admin"]){
+    DB.admins["admin"] = { username:"admin", name:"Demo Admin", password:"123456" };
+  }
+  DB.students["101"] = DB.students["101"] || { roll:"101", name:"Rohit Sharma", cls:"10-A", password:"student1", marks: { Mathematics:78, Physics:65, Chemistry:72, English:84, Computer:90 }, attendance:{}, revalRequests:[] };
+  DB.students["102"] = DB.students["102"] || { roll:"102", name:"Sneha Verma", cls:"10-A", password:"student2", marks: { Mathematics:88, Physics:75, Chemistry:68, English:92, Computer:85 }, attendance:{}, revalRequests:[] };
+  DB.students["103"] = DB.students["103"] || { roll:"103", name:"Aman Patel", cls:"10-A", password:"student3", marks: { Mathematics:55, Physics:45, Chemistry:50, English:60, Computer:58 }, attendance:{}, revalRequests:[] };
+  DB.courses["MATH101"] = DB.courses["MATH101"] || { code:"MATH101", title:"Mathematics" };
+  DB.courses["PHY101"] = DB.courses["PHY101"] || { code:"PHY101", title:"Physics" };
+  DB.timetable["Monday"] = DB.timetable["Monday"] || [{slot:"10:00 - 11:00", sub:"Mathematics"},{slot:"11:15 - 12:15", sub:"Physics"}];
+  saveDB(DB);
+  alert("Sample data loaded.\nAdmin: username=admin, password=123456.\nStudents: 101/102/103 passwords student1/2/3");
+  checkSessionRedirect();
+  renderAdminTables(); updateClassChart(); renderCourses(); renderTimetable();
+}
+
+function clearAllLocal(){
+  if(confirm("Clear all local data (including accounts)?")){
+    DB = { admins:{}, students:{}, courses:{}, timetable:{}, attendance:{} };
+    saveDB(DB); clearSession(); checkSessionRedirect(); renderAdminTables(); updateClassChart(); renderCourses(); renderTimetable(); alert("Cleared");
+  }
+}
+
+/* ===============================
+   ADMIN: Students & Marks CRUD
+   =============================== */
+const selStudent = document.getElementById("sel-student");
+function populateStudentSelect(){
+  if(!selStudent) return;
+  selStudent.innerHTML = "";
+  const students = Object.values(DB.students).sort((a,b)=> a.roll.localeCompare(b.roll));
+  students.forEach(s => {
+    const opt = document.createElement("option");
+    opt.value = s.roll; opt.textContent = s.roll + " - " + s.name;
+    selStudent.appendChild(opt);
+  });
+  renderAdminTables();
+}
+
+document.getElementById("add-student").onclick = ()=>{
+  const roll = document.getElementById("s-roll").value.trim();
+  const name = document.getElementById("s-name").value.trim();
+  const cls = document.getElementById("s-class").value.trim();
+  const msg = document.getElementById("student-msg");
+  if(!roll || !name){ msg.textContent = "Roll and Name are required."; return; }
+  if(DB.students[roll]){ msg.textContent = "This roll already exists."; return; }
+  if(DB.admins[roll]){ msg.textContent = "An admin exists with this ID. Choose a different roll."; return; }
+  DB.students[roll] = { roll, name, cls, password: "changeme", marks: {}, attendance:{}, revalRequests:[] };
+  saveDB(DB);
+  msg.textContent = "Student added. Default password: changeme";
+  document.getElementById("s-roll").value=""; document.getElementById("s-name").value=""; document.getElementById("s-class").value="";
+  populateStudentSelect(); renderAdminTables();
+  setTimeout(()=> msg.textContent="",2000);
+};
+
+document.getElementById("save-marks").onclick = ()=>{
+  const roll = selStudent ? selStudent.value : null;
+  const subj = document.getElementById("subj").value;
+  const marks = parseFloat(document.getElementById("marks").value);
+  const msg = document.getElementById("marks-msg");
+  if(!roll){ msg.textContent = "Select a student."; return; }
+  if(isNaN(marks) || marks<0 || marks>100){ msg.textContent = "Enter marks between 0 and 100."; return; }
+  DB.students[roll].marks[subj] = marks;
+  saveDB(DB);
+  msg.textContent = `Saved ${subj}: ${marks} for ${roll}`;
+  updateClassChart(); renderAdminTables();
+  setTimeout(()=> msg.textContent="",1400);
+};
+
+document.getElementById("admin-sample").onclick = ()=>{
+  const roll = selStudent ? selStudent.value : null;
+  if(!roll){ alert("Select student first"); return; }
+  const marks = { Mathematics: randomInt(40,95), Physics: randomInt(40,95), Chemistry: randomInt(40,95), English: randomInt(40,95), Computer: randomInt(40,95) };
+  DB.students[roll].marks = Object.assign({}, DB.students[roll].marks || {}, marks);
+  saveDB(DB); updateClassChart(); renderAdminTables(); alert("Sample marks added for " + roll);
+};
+
+document.getElementById("admin-sample-fill").onclick = ()=> {
+  Object.keys(DB.students).forEach(r=>{
+    DB.students[r].marks = { Mathematics: randomInt(40,95), Physics: randomInt(40,95), Chemistry: randomInt(40,95), English: randomInt(40,95), Computer: randomInt(40,95) };
+  });
+  saveDB(DB); updateClassChart(); renderAdminTables(); alert("Sample marks filled for all students.");
+};
+
+function randomInt(min,max){ return Math.floor(Math.random()*(max-min+1))+min; }
+
+const studentsTableBody = document.querySelector("#students-table tbody");
+function renderAdminTables(){
+  // ensure select up to date
+  if(selStudent){ selStudent.innerHTML = ""; Object.values(DB.students).sort((a,b)=> a.roll.localeCompare(b.roll)).forEach(s=>{ const opt=document.createElement("option"); opt.value=s.roll; opt.textContent=s.roll+" - "+s.name; selStudent.appendChild(opt); }); }
+
+  if(!studentsTableBody) return;
+  studentsTableBody.innerHTML = "";
+  const studentsSorted = Object.values(DB.students).sort((a,b)=> a.roll.localeCompare(b.roll));
+  studentsSorted.forEach(s=>{
+    const avg = averageObjectValues(s.marks);
+    const tr = document.createElement("tr");
+    tr.innerHTML = `<td>${s.roll}</td><td>${s.name}</td><td>${s.cls||""}</td><td>${isNaN(avg) ? "-" : avg.toFixed(1)}</td>
+      <td>
+        <button class="btn" data-roll="${s.roll}" style="padding:6px 8px">View</button>
+        <button class="btn btn-outline" data-del="${s.roll}" style="padding:6px 8px">Delete</button>
+      </td>`;
+    studentsTableBody.appendChild(tr);
+  });
+
+  // actions
+  document.querySelectorAll("button[data-roll]").forEach(b=>{
+    b.onclick = ()=> showStudentSummary(b.dataset.roll);
+  });
+  document.querySelectorAll("button[data-del]").forEach(b=>{
+    b.onclick = ()=>{
+      if(confirm("Delete student " + b.dataset.del + "?")){
+        delete DB.students[b.dataset.del]; saveDB(DB); populateStudentSelect(); renderAdminTables(); updateClassChart();
+      }
+    }
+  });
+
+  document.getElementById("students-count").textContent = studentsSorted.length;
+}
+
+function averageObjectValues(obj){
+  const vals = Object.values(obj||{});
+  if(vals.length === 0) return NaN;
+  return vals.reduce((a,b)=>a+b,0)/vals.length;
+}
+
+function showStudentSummary(roll){
+  const s = DB.students[roll];
+  if(!s) return;
+  alert(`${s.name} (${s.roll}) — Marks: ${JSON.stringify(s.marks || {})}`);
+}
+
+/* ===============================
+   CHARTS
+   =============================== */
+let classBarChart = null;
+function updateClassChart(){
+  const subjTotals = {};
+  const subjCounts = {};
+  Object.values(DB.students).forEach(s=>{
+    Object.entries(s.marks||{}).forEach(([sub, score])=>{
+      subjTotals[sub] = (subjTotals[sub] || 0) + score;
+      subjCounts[sub] = (subjCounts[sub] || 0) + 1;
+    });
+  });
+  const subjects = Object.keys(subjTotals);
+  const avgs = subjects.map(s=> Math.round((subjTotals[s]/subjCounts[s]) * 10)/10 );
+
+  const ctx = document.getElementById("class-bar").getContext("2d");
+  if(classBarChart) classBarChart.destroy();
+  classBarChart = new Chart(ctx, {
+    type: 'bar',
+    data: { labels: subjects.length ? subjects : ["No Data"], datasets:[{ label:'Average Marks', data: subjects.length ? avgs : [0], backgroundColor: 'rgba(11,93,215,0.85)'}] },
+    options: { responsive:true, maintainAspectRatio:false, scales:{ y:{ beginAtZero:true, max:100 } } }
+  });
+}
+
+let stuBar=null;
+function renderStudentCharts(labels, data){
+  const ctx1 = document.getElementById("stu-bar").getContext("2d");
+  if(stuBar) stuBar.destroy();
+  stuBar = new Chart(ctx1, { type:'bar', data:{ labels, datasets:[{label:'Marks', data}] }, options:{responsive:true, maintainAspectRatio:false, scales:{ y:{beginAtZero:true,max:100}} }});
+}
+
+/* ===============================
+   STUDENT DASHBOARD & EXPORTS
+   =============================== */
+let currentStudentRoll = null;
+function renderStudentDashboard(){
+  const session = loadSession();
+  if(session && session.role === "student") currentStudentRoll = session.id;
+  if(!currentStudentRoll){ showPage(pages.student); return; }
+  const s = DB.students[currentStudentRoll];
+  if(!s){ alert("Student not found"); clearSession(); checkSessionRedirect(); return; }
+  document.getElementById("stu-welcome").textContent = `${s.name} • Roll: ${s.roll}`;
+  const avg = averageObjectValues(s.marks);
+  const sugEl = document.getElementById("stu-suggestions");
+  if(isNaN(avg)){ sugEl.textContent = "No marks yet. Ask your teacher to add marks." }
+  else {
+    let sug = `Average: ${avg.toFixed(1)}. `;
+    const weak = Object.entries(s.marks||{}).filter(([,v])=>v<50).map(([k])=>k);
+    if(weak.length) sug += `Work on: ${weak.join(", ")}. Try practice tests and focused revision.`;
+    else sug += "Keep it up! Focus on mock tests and timed practice.";
+    sugEl.textContent = sug;
+  }
+  const subjects = ["Mathematics","Physics","Chemistry","English","Computer"];
+  const marksArr = subjects.map(sub => (s.marks && s.marks[sub] !== undefined) ? s.marks[sub] : 0);
+  renderStudentCharts(subjects, marksArr);
+}
+
+function renderStudentMarksTable(){
+  const session = loadSession();
+  if(!session || session.role !== "student") return;
+  const s = DB.students[session.id];
+  const tbody = document.querySelector("#stu-table tbody"); tbody.innerHTML = "";
+  const subjects = ["Mathematics","Physics","Chemistry","English","Computer"];
+  subjects.forEach(sub=>{
+    const m = (s.marks && s.marks[sub] !== undefined) ? s.marks[sub] : "-";
+    const tr = document.createElement("tr");
+    tr.innerHTML = `<td>${sub}</td><td>${m}</td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+/* PDF export */
+async function exportStudentPDF(roll){
+  const s = DB.students[roll];
+  if(!s) return alert("Student not found");
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({unit:'pt'});
+  doc.setFontSize(18); doc.text("Student Performance Report", 40, 40);
+  doc.setFontSize(12); doc.text(`Name: ${s.name}`,40,70); doc.text(`Roll No: ${s.roll}`,40,90); doc.text(`Class: ${s.cls || "-"}`,40,110);
+  doc.setFontSize(13);
+  let y = 140;
+  doc.text("Marks:",40,y); y += 20;
+  const subjects = Object.keys(s.marks||{});
+  if(subjects.length===0) doc.text("No marks available",40,y);
+  else { subjects.forEach(sub=>{ doc.text(`${sub}: ${s.marks[sub]}`,40,y); y += 18; }); }
+  doc.save(`${s.roll}_${s.name}_report.pdf`);
+}
+document.getElementById("stu-download").onclick = ()=>{
+  const session = loadSession(); if(!session || session.role!=="student") return alert("Login as student");
+  exportStudentPDF(session.id);
+};
+
+/* ===============================
+   COURSES module
+   =============================== */
+document.getElementById("add-course").onclick = ()=>{
+  const code = document.getElementById("course-code").value.trim();
+  const title = document.getElementById("course-title").value.trim();
+  const msg = document.getElementById("course-msg");
+  if(!code || !title){ msg.textContent = "Course code & title required."; return; }
+  DB.courses[code] = { code, title };
+  saveDB(DB);
+  msg.textContent = "Course added.";
+  document.getElementById("course-code").value=""; document.getElementById("course-title").value="";
+  renderCourses();
+  setTimeout(()=> msg.textContent="",1300);
+};
+document.getElementById("clear-courses").onclick = ()=>{
+  if(confirm("Clear all courses?")){ DB.courses = {}; saveDB(DB); renderCourses(); }
+};
+function renderCourses(){
+  const list = document.getElementById("course-list"); list.innerHTML = "";
+  const arr = Object.values(DB.courses);
+  if(arr.length===0){ list.textContent = "No courses yet."; return; }
+  arr.forEach(c=>{
+    const li = document.createElement("li"); li.textContent = `${c.code} — ${c.title}`; list.appendChild(li);
+  });
+}
+
+/* ===============================
+   TIMETABLE module
+   =============================== */
+document.getElementById("add-tt").onclick = ()=>{
+  const day = document.getElementById("tt-day").value;
+  const slot = document.getElementById("tt-slot").value.trim();
+  const sub = document.getElementById("tt-sub").value.trim();
+  const msg = document.getElementById("tt-msg");
+  if(!slot || !sub){ msg.textContent = "Slot and subject required."; return; }
+  DB.timetable[day] = DB.timetable[day] || [];
+  DB.timetable[day].push({slot, sub});
+  saveDB(DB);
+  msg.textContent = `Added ${slot} — ${sub} on ${day}`;
+  renderTimetable();
+  setTimeout(()=> msg.textContent="",1200);
+};
+document.getElementById("clear-tt").onclick = ()=>{
+  if(confirm("Clear whole timetable?")){ DB.timetable = {}; saveDB(DB); renderTimetable(); }
+};
+function renderTimetable(){
+  const container = document.getElementById("tt-list"); container.innerHTML = "";
+  const days = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+  days.forEach(d=>{
+    const slots = DB.timetable[d] || [];
+    const div = document.createElement("div");
+    div.innerHTML = `<b>${d}</b><div class="small-muted">${slots.length ? slots.map(s=>`${s.slot} — ${s.sub}`).join("<br>") : "No slots"}</div>`;
+    container.appendChild(div);
+  });
+  renderTodayTimetable();
+}
+function renderTodayTimetable(){
+  const todayIndex = (new Date()).getDay();
+  const days = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+  const day = days[todayIndex];
+  const slots = DB.timetable[day] || [];
+  const el = document.getElementById("admin-today-timetable");
+  el.textContent = slots.length ? slots.map(s=>`${s.slot} — ${s.sub}`).join(" | ") : "No timetable for today.";
+}
+function renderStudentTimetable(){
+  const session = loadSession(); if(!session || session.role!=="student") return;
+  const container = document.getElementById("stu-timetable-list"); container.innerHTML = "";
+  const days = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+  days.forEach(d=>{
+    const slots = DB.timetable[d] || [];
+    const div = document.createElement("div");
+    div.innerHTML = `<b>${d}</b> — ${slots.length ? slots.map(s=>`${s.slot} — ${s.sub}`).join("; ") : "No slots"}`;
+    container.appendChild(div);
+  });
+}
+
+/* ===============================
+   ATTENDANCE module
+   =============================== */
+function populateAttendanceStudentList(){
+  const container = document.getElementById("att-students-list"); container.innerHTML = "";
+  const students = Object.values(DB.students).sort((a,b)=> a.roll.localeCompare(b.roll));
+  if(students.length===0){ container.textContent = "No students."; return; }
+  students.forEach(s=>{
+    const div = document.createElement("div");
+    div.innerHTML = `<label><input type="checkbox" data-roll="${s.roll}" checked> ${s.roll} - ${s.name}</label>`;
+    container.appendChild(div);
+  });
+}
+document.getElementById("save-attendance").onclick = ()=>{
+  const date = document.getElementById("att-date").value;
+  const cls = document.getElementById("att-class").value.trim();
+  if(!date || !cls){ document.getElementById("att-msg").textContent="Select date & class."; return; }
+  const checkboxes = document.querySelectorAll("#att-students-list input[type='checkbox']");
+  const record = {};
+  checkboxes.forEach(cb => { record[cb.dataset.roll] = cb.checked ? "present" : "absent"; });
+  DB.attendance[`${date}_${cls}`] = record;
+  Object.keys(record).forEach(roll=>{
+    DB.students[roll].attendance = DB.students[roll].attendance || {};
+    DB.students[roll].attendance[date] = record[roll];
+  });
+  saveDB(DB);
+  document.getElementById("att-msg").textContent = "Attendance saved.";
+  setTimeout(()=> document.getElementById("att-msg").textContent = "",1500);
+};
+document.getElementById("view-attendance").onclick = ()=>{
+  const date = document.getElementById("att-date").value;
+  const cls = document.getElementById("att-class").value.trim();
+  if(!date || !cls){ document.getElementById("att-msg").textContent="Select date & class."; return; }
+  const rec = DB.attendance[`${date}_${cls}`];
+  if(!rec){ document.getElementById("att-msg").textContent = "No record for selected date/class."; return; }
+  const entries = Object.entries(rec).map(([r,s])=>`${r}: ${s}`).join("\n");
+  alert(`Attendance for ${date} (${cls}):\n\n` + entries);
+};
+
+function renderStudentAttendance(){
+  const session = loadSession(); if(!session || session.role!=="student") return;
+  const s = DB.students[session.id];
+  const el = document.getElementById("stu-att-list"); el.innerHTML = "";
+  const obj = s.attendance || {};
+  const keys = Object.keys(obj).sort((a,b)=> a.localeCompare(b));
+  if(keys.length===0){ el.textContent = "No attendance recorded."; return; }
+  keys.forEach(date=>{
+    const div = document.createElement("div"); div.textContent = `${date}: ${obj[date]}`; el.appendChild(div);
+  });
+}
+
+/* ===============================
+   RE-EVALUATION (Student)
+   =============================== */
+document.getElementById("submit-reval").onclick = ()=>{
+  const session = loadSession(); if(!session || session.role!=="student"){ alert("Login as student to apply."); return; }
+  const sroll = session.id;
+  const sub = document.getElementById("reval-sub").value;
+  const reason = document.getElementById("reval-reason").value.trim();
+  if(!reason){ document.getElementById("reval-msg").textContent = "Provide a reason."; return; }
+  const req = { id: `R${Date.now()}`, subject: sub, reason, status: "Pending", date: new Date().toISOString().slice(0,10) };
+  DB.students[sroll].revalRequests = DB.students[sroll].revalRequests || [];
+  DB.students[sroll].revalRequests.push(req);
+  saveDB(DB);
+  document.getElementById("reval-msg").textContent = "Request submitted.";
+  document.getElementById("reval-reason").value = "";
+  renderStudentRevalList();
+  setTimeout(()=> document.getElementById("reval-msg").textContent = "",1400);
+};
+function renderStudentRevalList(){
+  const session = loadSession(); if(!session || session.role!=="student") return;
+  const s = DB.students[session.id];
+  const el = document.getElementById("reval-list"); el.innerHTML = "";
+  const arr = s.revalRequests || [];
+  if(arr.length===0){ el.textContent = "No requests yet."; return; }
+  arr.forEach(r=>{
+    const div = document.createElement("div");
+    div.innerHTML = `<b>${r.subject}</b> — ${r.status} (${r.date})<div class="small-muted">Reason: ${r.reason}</div>`;
+    el.appendChild(div);
+  });
+}
+
+/* ===============================
+   Admin: misc renders
+   =============================== */
+function renderAttendanceSnapshot(){
+  const el = document.getElementById("admin-att-snapshot");
+  const keys = Object.keys(DB.attendance || {});
+  if(keys.length===0){ el.textContent = "No attendance records."; return; }
+  const arr = keys.slice(-3).map(k=> `${k}: ${Object.values(DB.attendance[k]).length} marks` ).join(" | ");
+  el.textContent = arr;
+}
+function renderAdminProfile(){
+  const s = loadSession(); if(!s || s.role!=="admin") return;
+  const admin = DB.admins[s.id];
+  const el = document.getElementById("admin-profile-content");
+  el.innerHTML = `Name: ${admin.name} <br> Username: ${admin.username}`;
+}
+function renderStudentProfile(){
+  const s = loadSession(); if(!s || s.role!=="student") return;
+  const stu = DB.students[s.id];
+  const el = document.getElementById("stu-profile-content");
+  el.innerHTML = `Name: ${stu.name} <br> Roll: ${stu.roll} <br> Class: ${stu.cls || "-"}`;
+}
+
+/* ===============================
+   Export class PDF
+   =============================== */
+document.getElementById("admin-action-export").onclick = ()=>{
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({unit:'pt'});
+  doc.setFontSize(16); doc.text("Class Performance Report",40,40);
+  doc.setFontSize(11);
+  let y = 70;
+  Object.values(DB.students).forEach(s=>{
+    const avg = averageObjectValues(s.marks);
+    doc.text(`${s.roll} • ${s.name} • Avg: ${isNaN(avg) ? 'N/A' : avg.toFixed(1)}`,40,y);
+    y += 16;
+    if(y>750){ doc.addPage(); y=40; }
+  });
+  doc.save(`class_report.pdf`);
+};
+
+/* ===============================
+   Logout
+   =============================== */
+document.getElementById("admin-logout-btn").onclick = ()=>{
+  if(confirm("Logout?")){ clearSession(); checkSessionRedirect(); }
+};
+document.getElementById("stu-logout-btn").onclick = ()=>{
+  if(confirm("Logout?")){ clearSession(); currentStudentRoll=null; checkSessionRedirect(); }
+};
+
+/* ===============================
+   Initial render & binds
+   =============================== */
+populateStudentSelect();
+renderAdminTables();
+updateClassChart();
+renderCourses();
+renderTimetable();
+checkSessionRedirect();
+
+document.getElementById("login-id").addEventListener("keydown", e=>{ if(e.key==='Enter') document.getElementById("login-btn").click(); });
+document.getElementById("login-pass").addEventListener("keydown", e=>{ if(e.key==='Enter') document.getElementById("login-btn").click(); });
+
+document.getElementById("theme-picker").onchange = function(){
+  const v = this.value;
+  if(v==="dark") document.body.style.background = "linear-gradient(180deg,#071021,#0b1220)";
+  else if(v==="blue") document.body.style.background = "linear-gradient(180deg,#e6f0ff,#f8fbff)";
+  else document.body.style.background = "";
+};
+
+window.addEventListener('storage', ()=> { DB = loadDB(); populateStudentSelect(); renderAdminTables(); updateClassChart(); renderCourses(); renderTimetable(); });
+
+/* expose for debugging */
+window._EDUPULSE = { DB, saveDB, loadDB, saveSession, loadSession };
+
+</script>
+</body>
+</html>
